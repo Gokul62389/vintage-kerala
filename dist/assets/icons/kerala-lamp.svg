@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Kerala Nilavilakku (Traditional Brass Lamp) Icon -->
+  <circle cx="50" cy="50" r="46" fill="#1D2B24" stroke="#C6A46A" stroke-width="3"/>
+  <!-- Flame -->
+  <path d="M50 18 C46 26, 42 32, 45 38 C47 42, 53 42, 55 38 C58 32, 54 26, 50 18 Z" fill="#E99236"/>
+  <path d="M50 24 C48 29, 45 32, 47 36 C48 38, 52 38, 53 36 C55 32, 52 29, 50 24 Z" fill="#F7DC6F"/>
+  <!-- Top Finial / Crown -->
+  <polygon points="50,38 46,44 54,44" fill="#C6A46A"/>
+  <!-- Top Oil Bowl -->
+  <path d="M30 46 C30 44, 70 44, 70 46 C67 52, 33 52, 30 46 Z" fill="#C6A46A"/>
+  <ellipse cx="50" cy="46" rx="20" ry="2.5" fill="#DFB876"/>
+  <!-- Pillar / Stem -->
+  <path d="M47 50 L46 68 L54 68 L53 50 Z" fill="#C6A46A"/>
+  <circle cx="50" cy="56" r="3.5" fill="#E9D8B5"/>
+  <circle cx="50" cy="62" r="3.5" fill="#E9D8B5"/>
+  <!-- Base Pedestal -->
+  <path d="M34 70 C34 68, 66 68, 66 70 C64 74, 36 74, 34 70 Z" fill="#C6A46A"/>
+  <path d="M26 76 C26 73, 74 73, 74 76 C70 82, 30 82, 26 76 Z" fill="#B38F52"/>
+</svg>
