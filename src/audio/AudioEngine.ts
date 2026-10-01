@@ -578,13 +578,19 @@ export class AudioEngine {
         this.triggerTeaPour(sceneGain);
       }, 9500);
 
-      // 4. Periodic Tumbler Glass Clinking
+      // 4. Spoon stirring movement inside glass tumbler (Ref: YouTube Tf88zcmywBU)
+      const spoonStirInterval = window.setInterval(() => {
+        if (!this.ctx || this.currentSoundscape !== 'tea-shop') return;
+        this.triggerSpoonStir(sceneGain);
+      }, 7200);
+
+      // 5. Periodic Tumbler Glass Clinking
       const clinkInterval = window.setInterval(() => {
         if (!this.ctx || this.currentSoundscape !== 'tea-shop') return;
         this.triggerGlassClink(sceneGain);
-      }, 6500);
+      }, 5500);
 
-      // 5. Periodic Vintage Bicycle Bell Ringing ("trin-trin" passing outside the shop)
+      // 6. Periodic Vintage Bicycle Bell Ringing ("trin-trin" passing outside the shop)
       const cycleBellInterval = window.setInterval(() => {
         if (!this.ctx || this.currentSoundscape !== 'tea-shop') return;
         this.triggerCycleBell(sceneGain);
@@ -592,6 +598,7 @@ export class AudioEngine {
 
       cleanupFns.push(() => {
         clearInterval(teaPourInterval);
+        clearInterval(spoonStirInterval);
         clearInterval(clinkInterval);
         clearInterval(cycleBellInterval);
         try { steamNoise.stop(); } catch {}
@@ -816,6 +823,37 @@ export class AudioEngine {
 
     noise.start(now);
     noise.stop(now + 2.1);
+  }
+
+  // Exact live spoon stirring & metallic rim clicks (from YouTube reference Tf88zcmywBU)
+  private triggerSpoonStir(destination: GainNode): void {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    // A sequence of rapid 4-6 rhythmic steel spoon taps against the glass tumbler rim
+    const taps = [0, 0.14, 0.28, 0.42, 0.58];
+    taps.forEach((offset, idx) => {
+      if (!this.ctx) return;
+      const tapTime = now + offset;
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+
+      // Slightly modulating resonance representing spoon stirring swirl
+      const pitch = 2300 + (idx % 2 === 0 ? 120 : -80);
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(pitch, tapTime);
+      osc.frequency.exponentialRampToValueAtTime(pitch * 0.85, tapTime + 0.08);
+
+      g.gain.setValueAtTime(0.001, tapTime);
+      g.gain.exponentialRampToValueAtTime(0.07, tapTime + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, tapTime + 0.09);
+
+      osc.connect(g);
+      g.connect(destination);
+
+      osc.start(tapTime);
+      osc.stop(tapTime + 0.1);
+    });
   }
 
   // Authentic vintage Indian road bicycle bell double ring ("trin-trin")
