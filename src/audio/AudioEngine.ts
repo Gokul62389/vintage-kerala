@@ -1,5 +1,4 @@
 import { SoundscapeType, Song } from '../types/experience';
-import { SpotifyPlayerManager } from './SpotifyPlayerManager';
 
 type PlaybackStateListener = (state: {
   isPlaying: boolean;
@@ -7,7 +6,6 @@ type PlaybackStateListener = (state: {
   duration: number;
   isLoading: boolean;
   isProceduralSong: boolean;
-  isSpotifyActive: boolean;
   error: string | null;
 }) => void;
 
@@ -38,12 +36,6 @@ export class AudioEngine {
   private ambientEnabled: boolean = true;
   private listeners: Set<PlaybackStateListener> = new Set();
 
-  // Spotify Playback integration
-  private spotifyManager: SpotifyPlayerManager = SpotifyPlayerManager.getInstance();
-  private isSpotifyActive: boolean = false;
-  private spotifyCurrentTime: number = 0;
-  private spotifyDuration: number = 240;
-
   // Procedural fallback music (when local mp3 is not yet dropped in)
   private isProceduralSongActive: boolean = false;
   private proceduralInterval: number | null = null;
@@ -61,17 +53,7 @@ export class AudioEngine {
   private foleyLoopStopFn: (() => void) | null = null;
 
   private constructor() {
-    // Listen to Spotify EmbedController playback updates
-    this.spotifyManager.subscribe((update) => {
-      if (this.isSpotifyActive) {
-        this.isPlaying = !update.isPaused;
-        this.spotifyCurrentTime = update.position / 1000;
-        if (update.duration > 0) {
-          this.spotifyDuration = update.duration / 1000;
-        }
-        this.notifyState({ isLoading: update.isBuffering });
-      }
-    });
+    // Initialized on first user interaction
   }
 
   public static getInstance(): AudioEngine {
@@ -154,10 +136,7 @@ export class AudioEngine {
     let time = 0;
     let dur = this.currentSong?.duration || 240;
 
-    if (this.isSpotifyActive) {
-      time = this.spotifyCurrentTime;
-      dur = this.spotifyDuration > 0 ? this.spotifyDuration : (this.currentSong?.duration || 240);
-    } else if (this.isProceduralSongActive) {
+    if (this.isProceduralSongActive) {
       time = this.proceduralCurrentTime;
       dur = this.proceduralDuration;
     } else {
@@ -171,7 +150,6 @@ export class AudioEngine {
       duration: Number.isFinite(dur) && dur > 0 ? dur : 240,
       isLoading: extra?.isLoading ?? false,
       isProceduralSong: this.isProceduralSongActive,
-      isSpotifyActive: this.isSpotifyActive,
       error: extra?.error ?? null,
     };
 
@@ -184,30 +162,6 @@ export class AudioEngine {
     await this.initContext();
     this.currentSong = song;
     this.stopProceduralSong();
-
-    // Priority 1: If the track has a Spotify URI and EmbedController is ready or connecting,
-    // route playback through Spotify Player Manager so the song plays in its FULL ENTIRETY!
-    if (song.spotifyUri) {
-      this.isSpotifyActive = true;
-      this.spotifyCurrentTime = 0;
-      this.spotifyDuration = song.duration || 240;
-
-      // Stop any local HTML5 preview audio
-      if (this.musicAudio) {
-        this.musicAudio.pause();
-        this.musicAudio.src = '';
-        this.musicAudio = null;
-      }
-
-      this.notifyState({ isLoading: autoPlay, error: null });
-      this.spotifyManager.loadTrack(song.spotifyUri, autoPlay);
-
-      // If Spotify controller isn't mounted yet or user wants preview audio fallback,
-      // load audio element as secondary parallel source
-      return;
-    }
-
-    this.isSpotifyActive = false;
 
     if (this.musicAudio) {
       this.musicAudio.pause();
@@ -269,7 +223,7 @@ export class AudioEngine {
 
     // Timeout check in case network hangs or file is completely 404
     setTimeout(() => {
-      if (!hasLoaded && this.musicAudio === audio && !this.isProceduralSongActive && !this.isSpotifyActive) {
+      if (!hasLoaded && this.musicAudio === audio && !this.isProceduralSongActive) {
         this.startProceduralSong(autoPlay);
       }
     }, 1200);
@@ -277,13 +231,6 @@ export class AudioEngine {
 
   public async play(): Promise<void> {
     await this.initContext();
-
-    if (this.isSpotifyActive) {
-      this.isPlaying = true;
-      this.spotifyManager.play();
-      this.notifyState();
-      return;
-    }
 
     if (this.isProceduralSongActive) {
       this.isPlaying = true;
@@ -308,9 +255,6 @@ export class AudioEngine {
 
   public pause(): void {
     this.isPlaying = false;
-    if (this.isSpotifyActive) {
-      this.spotifyManager.pause();
-    }
     if (this.musicAudio) {
       this.musicAudio.pause();
     }
@@ -318,13 +262,6 @@ export class AudioEngine {
   }
 
   public seek(seconds: number): void {
-    if (this.isSpotifyActive) {
-      this.spotifyCurrentTime = seconds;
-      this.spotifyManager.seek(seconds);
-      this.notifyState();
-      return;
-    }
-
     if (this.isProceduralSongActive) {
       this.proceduralCurrentTime = Math.max(0, Math.min(seconds, this.proceduralDuration));
       this.notifyState();

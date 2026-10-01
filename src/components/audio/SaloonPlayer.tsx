@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Song } from '../../types/experience';
-import { ListMusic, Search, X, ExternalLink, SlidersHorizontal } from 'lucide-react';
+import { ListMusic, Search, X, ExternalLink } from 'lucide-react';
 import { SPOTIFY_PLAYLIST_ID, SPOTIFY_PLAYLIST_NAME } from '../../data/songs';
 
 interface SaloonPlayerProps {
@@ -16,7 +16,6 @@ interface SaloonPlayerProps {
   allSongs?: Song[];
   currentIndex?: number;
   onSelectTrack?: (index: number) => void;
-  onToggleSpotifyEmbed?: () => void;
   isLofiEnabled?: boolean;
   onToggleLofi?: () => void;
 }
@@ -41,7 +40,6 @@ export const SaloonPlayer: React.FC<SaloonPlayerProps> = ({
   allSongs = [],
   currentIndex = 0,
   onSelectTrack,
-  onToggleSpotifyEmbed,
   isLofiEnabled = true,
   onToggleLofi,
 }) => {
@@ -97,15 +95,6 @@ export const SaloonPlayer: React.FC<SaloonPlayerProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
-              {onToggleSpotifyEmbed && (
-                <button
-                  onClick={onToggleSpotifyEmbed}
-                  title="Toggle Full Spotify Player"
-                  className="text-white/60 hover:text-[#1DB954] transition p-1 cursor-pointer"
-                >
-                  <SlidersHorizontal className="w-3.5 h-3.5" />
-                </button>
-              )}
               <a
                 href={`https://open.spotify.com/playlist/${SPOTIFY_PLAYLIST_ID}`}
                 target="_blank"

@@ -5,15 +5,10 @@ import { EnvironmentViewer } from '../environments/EnvironmentViewer';
 import { HomePageModeSwitcher } from '../environments/HomePageModeSwitcher';
 import { SaloonHeader } from './SaloonHeader';
 import { SaloonPlayer } from '../audio/SaloonPlayer';
-import { SpotifyEmbedPlayer } from '../audio/SpotifyEmbedPlayer';
-
 import { SAMPLE_SONGS } from '../../data/songs';
-import { SpotifyPlayerManager } from '../../audio/SpotifyPlayerManager';
 
 export const MainExperience: React.FC = () => {
   const [activeEnvIndex, setActiveEnvIndex] = useState<number>(0);
-  const [isSpotifyOpen, setIsSpotifyOpen] = useState<boolean>(false);
-  const [foleyVol, setFoleyVol] = useState<number>(0.35);
 
   const activeEnvironment = ENVIRONMENTS[activeEnvIndex];
 
@@ -30,7 +25,6 @@ export const MainExperience: React.FC = () => {
     seek,
     playSong,
     setEnvironmentSoundscape,
-    setAmbientVolume,
     toggleMute,
     toggleLofi,
     mixer,
@@ -44,17 +38,6 @@ export const MainExperience: React.FC = () => {
   const handleNextEnvironment = useCallback(() => {
     setActiveEnvIndex((prev) => (prev + 1) % ENVIRONMENTS.length);
   }, []);
-
-  // Mount Spotify IFrame controller for full track streaming
-  useEffect(() => {
-    const el = document.getElementById('spotify-controller-mount');
-    if (el) {
-      SpotifyPlayerManager.getInstance().mount(
-        el,
-        currentSong.spotifyUri || 'spotify:track:4yFIiVAmKnkE8FbNBELVdg'
-      );
-    }
-  }, [currentSong.spotifyUri]);
 
   // Sync ambient soundscape when environment changes (seamless crossfade)
   useEffect(() => {
@@ -100,8 +83,6 @@ export const MainExperience: React.FC = () => {
         environmentIndex={activeEnvIndex}
         totalEnvironments={ENVIRONMENTS.length}
         onNextEnvironment={handleNextEnvironment}
-        onToggleSpotify={() => setIsSpotifyOpen((prev) => !prev)}
-        isSpotifyOpen={isSpotifyOpen}
       />
 
       {/* 3. Subtle Edge Chevrons to switch Kerala scenes */}
@@ -130,26 +111,6 @@ export const MainExperience: React.FC = () => {
       {/* Center Spacer to balance layout */}
       <div className="flex-1" />
 
-      {/* 4. Connected Spotify Playlist Player Dock */}
-      <SpotifyEmbedPlayer
-        isOpen={isSpotifyOpen}
-        onClose={() => setIsSpotifyOpen(false)}
-        initialPlaylistUrl="https://open.spotify.com/playlist/2o6xkm1yZJ5t6z2wDOaYGF"
-        foleyVolume={foleyVol}
-        onFoleyVolumeChange={(vol) => {
-          setFoleyVol(vol);
-          setAmbientVolume(vol);
-        }}
-        sceneName={activeEnvironment.name.split('(')[0].trim()}
-      />
-
-      {/* 4b. Headless Spotify IFrame API Controller Mount Point */}
-      <div 
-        id="spotify-controller-mount"
-        className="fixed -bottom-[9999px] -left-[9999px] w-1 h-1 opacity-0 pointer-events-none"
-        aria-hidden="true"
-      />
-
       {/* 5. Bottom Section: Homepage Mode Switcher + Saloon Player Dock */}
       <div className="w-full flex flex-col items-center">
         {/* On-Page Kerala Environment Mode Switcher */}
@@ -175,7 +136,6 @@ export const MainExperience: React.FC = () => {
           allSongs={SAMPLE_SONGS}
           currentIndex={currentSongIndex}
           onSelectTrack={playSong}
-          onToggleSpotifyEmbed={() => setIsSpotifyOpen((prev) => !prev)}
           isLofiEnabled={mixer.lofiEnabled}
           onToggleLofi={toggleLofi}
         />
