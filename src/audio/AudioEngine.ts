@@ -19,6 +19,14 @@ export class AudioEngine {
   private musicGain: GainNode | null = null;
   private ambientGain: GainNode | null = null;
 
+  // Real-time Lo-Fi Vintage Tape DSP Chain
+  private lofiEnabled: boolean = true;
+  private lofiLowpass: BiquadFilterNode | null = null;
+  private lofiHighpass: BiquadFilterNode | null = null;
+  private lofiWarmth: WaveShaperNode | null = null;
+  private lofiVinylGain: GainNode | null = null;
+  private mediaSourceNode: MediaElementAudioSourceNode | null = null;
+
   // Music Player state
   private musicAudio: HTMLAudioElement | null = null;
   private currentSong: Song | null = null;
@@ -86,9 +94,46 @@ export class AudioEngine {
       // Music bus
       this.musicGain = this.ctx.createGain();
       this.musicGain.gain.setValueAtTime(this.musicVol, this.ctx.currentTime);
-      this.musicGain.connect(this.masterGain);
 
-      // Ambient bus
+      // --- LO-FI VINTAGE TAPE & VINYL DSP PROCESSOR ---
+      // 1. Highpass (removes sterile sub-bass below 80Hz, emulating vintage transistor speakers)
+      this.lofiHighpass = this.ctx.createBiquadFilter();
+      this.lofiHighpass.type = 'highpass';
+      this.lofiHighpass.frequency.setValueAtTime(this.lofiEnabled ? 95 : 20, this.ctx.currentTime);
+
+      // 2. Lowpass (warm tape roll-off at 3800Hz, attenuating harsh digital highs)
+      this.lofiLowpass = this.ctx.createBiquadFilter();
+      this.lofiLowpass.type = 'lowpass';
+      this.lofiLowpass.frequency.setValueAtTime(this.lofiEnabled ? 3850 : 20000, this.ctx.currentTime);
+      this.lofiLowpass.Q.setValueAtTime(0.7, this.ctx.currentTime);
+
+      // 3. Vintage Analog Tape Saturation (warm subtle overdrive curve)
+      this.lofiWarmth = this.ctx.createWaveShaper();
+      this.lofiWarmth.curve = this.createAnalogWarmthCurve(this.lofiEnabled ? 20 : 0);
+      this.lofiWarmth.oversample = '2x';
+
+      // Connect DSP chain: musicGain -> lofiHighpass -> lofiLowpass -> lofiWarmth -> masterGain
+      this.musicGain.connect(this.lofiHighpass);
+      this.lofiHighpass.connect(this.lofiLowpass);
+      this.lofiLowpass.connect(this.lofiWarmth);
+      this.lofiWarmth.connect(this.masterGain);
+
+      // 4. Subtle Vinyl Needle Dust & Crackle Layer (embedded on music bus)
+      const vinylNoise = this.createNoiseBufferNode(true);
+      const vinylFilter = this.ctx.createBiquadFilter();
+      vinylFilter.type = 'bandpass';
+      vinylFilter.frequency.value = 1600;
+      vinylFilter.Q.value = 2.2;
+
+      this.lofiVinylGain = this.ctx.createGain();
+      this.lofiVinylGain.gain.setValueAtTime(this.lofiEnabled ? 0.035 : 0.0, this.ctx.currentTime);
+
+      vinylNoise.connect(vinylFilter);
+      vinylFilter.connect(this.lofiVinylGain);
+      this.lofiVinylGain.connect(this.masterGain);
+      vinylNoise.start();
+
+      // Ambient Foley bus
       this.ambientGain = this.ctx.createGain();
       this.ambientGain.gain.setValueAtTime(this.ambientEnabled ? this.ambientVol : 0, this.ctx.currentTime);
       this.ambientGain.connect(this.masterGain);
@@ -175,11 +220,23 @@ export class AudioEngine {
 
     const audio = new Audio();
     audio.preload = 'metadata';
+    audio.crossOrigin = 'anonymous';
     audio.src = song.audio;
     this.musicAudio = audio;
 
-    // Attach to Web Audio if possible or direct volume control
-    audio.volume = this.isMuted ? 0 : this.masterVol * this.musicVol;
+    // Route audio directly through the Web Audio Lo-Fi DSP filter pipeline
+    if (this.ctx && this.musicGain) {
+      try {
+        const source = this.ctx.createMediaElementSource(audio);
+        source.connect(this.musicGain);
+        this.mediaSourceNode = source;
+      } catch {
+        // Fallback to direct volume control if CORS prevents Web Audio node hook
+        audio.volume = this.isMuted ? 0 : this.masterVol * this.musicVol;
+      }
+    } else {
+      audio.volume = this.isMuted ? 0 : this.masterVol * this.musicVol;
+    }
 
     let hasLoaded = false;
 
@@ -927,13 +984,56 @@ export class AudioEngine {
       this.ambientGain.gain.setTargetAtTime(this.ambientEnabled ? this.ambientVol : 0, now, 0.05);
     }
 
-    if (this.musicAudio) {
+    if (this.musicAudio && !this.mediaSourceNode) {
       this.musicAudio.volume = this.isMuted ? 0 : this.masterVol * this.musicVol;
     }
 
     if (this.ambientAudioElement) {
       this.ambientAudioElement.volume = this.isMuted || !this.ambientEnabled ? 0 : this.masterVol * this.ambientVol;
     }
+  }
+
+  // --- LO-FI PROCESSING CURVE & TOGGLE CONTROLS ---
+
+  private createAnalogWarmthCurve(amount = 20): Float32Array {
+    const k = amount;
+    const n = 44100;
+    const curve = new Float32Array(n);
+    const deg = Math.PI / 180;
+    for (let i = 0; i < n; i++) {
+      const x = (i * 2) / n - 1;
+      if (k === 0) {
+        curve[i] = x;
+      } else {
+        // Soft analog tape compression and subtle odd-harmonic saturation
+        curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+      }
+    }
+    return curve;
+  }
+
+  public setLofiEnabled(enabled: boolean): void {
+    this.lofiEnabled = enabled;
+    if (this.ctx) {
+      const now = this.ctx.currentTime;
+      if (this.lofiHighpass) {
+        this.lofiHighpass.frequency.setTargetAtTime(enabled ? 95 : 20, now, 0.08);
+      }
+      if (this.lofiLowpass) {
+        this.lofiLowpass.frequency.setTargetAtTime(enabled ? 3850 : 20000, now, 0.08);
+      }
+      if (this.lofiVinylGain) {
+        this.lofiVinylGain.gain.setTargetAtTime(enabled ? 0.035 : 0.0, now, 0.08);
+      }
+      if (this.lofiWarmth) {
+        this.lofiWarmth.curve = this.createAnalogWarmthCurve(enabled ? 20 : 0);
+      }
+    }
+  }
+
+  public toggleLofi(): boolean {
+    this.setLofiEnabled(!this.lofiEnabled);
+    return this.lofiEnabled;
   }
 
   public getMixerState() {
@@ -943,6 +1043,7 @@ export class AudioEngine {
       ambientVolume: this.ambientVol,
       isMuted: this.isMuted,
       ambientEnabled: this.ambientEnabled,
+      lofiEnabled: this.lofiEnabled,
     };
   }
 }

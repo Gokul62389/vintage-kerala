@@ -121,6 +121,16 @@ export function useAudio() {
     setMixer(engine.getMixerState());
   }, [engine]);
 
+  const toggleLofi = useCallback(() => {
+    engine.toggleLofi();
+    setMixer(engine.getMixerState());
+  }, [engine]);
+
+  const setLofiEnabled = useCallback((enabled: boolean) => {
+    engine.setLofiEnabled(enabled);
+    setMixer(engine.getMixerState());
+  }, [engine]);
+
   return {
     currentSong,
     currentSongIndex,
@@ -145,5 +155,7 @@ export function useAudio() {
     setAmbientVolume,
     toggleMute,
     toggleAmbient,
+    toggleLofi,
+    setLofiEnabled,
   };
 }

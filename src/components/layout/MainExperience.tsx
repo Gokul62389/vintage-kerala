@@ -32,6 +32,8 @@ export const MainExperience: React.FC = () => {
     setEnvironmentSoundscape,
     setAmbientVolume,
     toggleMute,
+    toggleLofi,
+    mixer,
   } = useAudio();
 
   // Environment switching
@@ -174,6 +176,8 @@ export const MainExperience: React.FC = () => {
           currentIndex={currentSongIndex}
           onSelectTrack={playSong}
           onToggleSpotifyEmbed={() => setIsSpotifyOpen((prev) => !prev)}
+          isLofiEnabled={mixer.lofiEnabled}
+          onToggleLofi={toggleLofi}
         />
       </div>
     </main>

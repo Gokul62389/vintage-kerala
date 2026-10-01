@@ -17,6 +17,8 @@ interface SaloonPlayerProps {
   currentIndex?: number;
   onSelectTrack?: (index: number) => void;
   onToggleSpotifyEmbed?: () => void;
+  isLofiEnabled?: boolean;
+  onToggleLofi?: () => void;
 }
 
 function formatTime(secs: number): string {
@@ -40,6 +42,8 @@ export const SaloonPlayer: React.FC<SaloonPlayerProps> = ({
   currentIndex = 0,
   onSelectTrack,
   onToggleSpotifyEmbed,
+  isLofiEnabled = true,
+  onToggleLofi,
 }) => {
   const progressBarRef = useRef<HTMLDivElement | null>(null);
   const [isQueueOpen, setIsQueueOpen] = useState<boolean>(false);
@@ -245,9 +249,24 @@ export const SaloonPlayer: React.FC<SaloonPlayerProps> = ({
                 />
               </div>
 
-              {/* Timestamp & Spotify Queue Quick Button */}
+              {/* Timestamp, Lo-Fi Badge, & Spotify Queue Quick Button */}
               <div className="mt-0.5 flex items-center justify-between text-[10px] tabular-nums text-white/60 font-mono">
-                <span>{formatTime(currentTime)} / {formatTime(duration)}</span>
+                <div className="flex items-center gap-2">
+                  <span>{formatTime(currentTime)} / {formatTime(duration)}</span>
+                  {onToggleLofi && (
+                    <button
+                      onClick={onToggleLofi}
+                      title={isLofiEnabled ? "Lo-Fi Tape Warmth & Vinyl Crackle ON (Click to bypass)" : "Lo-Fi Tape Warmth OFF (Click to enable)"}
+                      className={`text-[9px] px-1.5 py-0.2 rounded-full font-sans font-medium transition cursor-pointer border ${
+                        isLofiEnabled
+                          ? "bg-amber-500/20 text-amber-300 border-amber-400/40 shadow-[0_0_8px_rgba(245,158,11,0.2)]"
+                          : "bg-white/5 text-white/40 border-white/10 hover:text-white/70"
+                      }`}
+                    >
+                      {isLofiEnabled ? "📻 Lo-Fi ON" : "Lo-Fi OFF"}
+                    </button>
+                  )}
+                </div>
                 
                 <button
                   onClick={() => setIsQueueOpen(!isQueueOpen)}
