@@ -5,6 +5,31 @@ export const SPOTIFY_PLAYLIST_NAME = 'പഴയ സൂപ്പർ ഹിറ്�
 
 export const SAMPLE_SONGS: Song[] = [
   {
+    id: "vintage-kerala-melodies-lofi",
+    title: "Best Melodies of All Time",
+    malayalamTitle: "എക്കാലത്തെയും മികച്ച ഗാനങ്ങൾ",
+    artist: "Vidyasagar, K. J. Yesudas, K. S. Chithra",
+    movie: "Vintage Malayalam Classic Hits",
+    year: 1998,
+    audio: "/assets/songs/vintage-kerala-melodies.m4a",
+    cover: "/assets/covers/vintage-melodies.jpg",
+    duration: 3217, // ~53 minutes of continuous uninterrupted classic melodies
+    tags: [
+      "malayalam",
+      "vintage",
+      "lofi",
+      "melodies",
+      "yesudas",
+      "chithra",
+      "vidyasagar"
+    ],
+    recommendedEnvironments: [
+      "tea-shop",
+      "rainy-home",
+      "village-food"
+    ]
+  },
+  {
     "id": "4yFIiVAmKnkE8FbNBELVdg",
     "spotifyUri": "spotify:track:4yFIiVAmKnkE8FbNBELVdg",
     "title": "Thankathinkal",
