@@ -1,25 +1,32 @@
-import React, { useState } from 'react';
-import { IntroScreen } from './components/layout/IntroScreen';
+import React, { useEffect } from 'react';
 import { MainExperience } from './components/layout/MainExperience';
 import { AudioEngine } from './audio/AudioEngine';
 
 export const App: React.FC = () => {
-  const [hasEntered, setHasEntered] = useState<boolean>(false);
+  useEffect(() => {
+    // Automatically initialize / resume AudioContext on first user interaction anywhere
+    const handleFirstInteraction = () => {
+      const engine = AudioEngine.getInstance();
+      engine.initContext();
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('keydown', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+    };
 
-  const handleEnter = async () => {
-    // Unlock browser audio context on user gesture
-    const engine = AudioEngine.getInstance();
-    await engine.initContext();
-    setHasEntered(true);
-  };
+    window.addEventListener('click', handleFirstInteraction, { once: true });
+    window.addEventListener('keydown', handleFirstInteraction, { once: true });
+    window.addEventListener('touchstart', handleFirstInteraction, { once: true });
+
+    return () => {
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('keydown', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+    };
+  }, []);
 
   return (
     <div className="w-full h-full">
-      {!hasEntered ? (
-        <IntroScreen onEnter={handleEnter} />
-      ) : (
-        <MainExperience />
-      )}
+      <MainExperience />
     </div>
   );
 };

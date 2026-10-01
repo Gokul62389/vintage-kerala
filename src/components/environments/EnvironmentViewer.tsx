@@ -1,19 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Environment } from '../../types/experience';
-import { EnvironmentHotspots } from './EnvironmentHotspots';
 
 interface EnvironmentViewerProps {
   environment: Environment;
-  isMotionEnabled: boolean;
-  reducedMotion: boolean;
-  onHotspotClick?: (title: string, desc: string) => void;
 }
 
 export const EnvironmentViewer: React.FC<EnvironmentViewerProps> = ({
   environment,
-  isMotionEnabled,
-  reducedMotion,
-  onHotspotClick,
 }) => {
   const [isVideoLoaded, setIsVideoLoaded] = useState<boolean>(false);
   const [videoError, setVideoError] = useState<boolean>(false);
@@ -28,38 +21,32 @@ export const EnvironmentViewer: React.FC<EnvironmentViewerProps> = ({
 
     const timer = setTimeout(() => {
       setIsTransitioning(false);
-    }, 450);
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [environment.id]);
 
-  // Video playback management
+  // Video playback management if .mp4 is available
   useEffect(() => {
     if (videoRef.current && environment.video && !videoError) {
       videoRef.current.load();
       videoRef.current.play().catch(() => {
-        // Fallback to static illustration if autoplay fails
         setVideoError(true);
       });
     }
   }, [environment.video, videoError]);
 
-  const useMotion = isMotionEnabled && !reducedMotion;
-  const motionClass = useMotion 
-    ? (environment.camera.desktop === 'gentle-pan' ? 'animate-gentle-pan' : 'animate-subtle-drift') 
-    : '';
-
   return (
-    <div className="relative w-full h-full overflow-hidden bg-[#181816]">
-      {/* Background Visual Layer */}
+    <div className="hero-bg fixed inset-0 -z-10 bg-black overflow-hidden select-none">
+      {/* Background Visual Layer with Subtle 28s Cinematic Breathing Drift */}
       <div 
-        className={`absolute inset-0 w-full h-full transition-opacity duration-700 ease-in-out ${
-          isTransitioning ? 'opacity-30 scale-[1.01]' : 'opacity-100'
+        className={`absolute inset-0 w-full h-full transition-opacity duration-500 ease-in-out ${
+          isTransitioning ? 'opacity-40' : 'opacity-100'
         }`}
       >
-        {/* Render Flow-generated MP4 Video if available and working */}
+        {/* Render MP4 Loop if provided and functional */}
         {environment.video && !videoError ? (
-          <div className="relative w-full h-full overflow-hidden">
+          <div className="relative w-full h-full">
             <video
               ref={videoRef}
               src={environment.video}
@@ -70,53 +57,32 @@ export const EnvironmentViewer: React.FC<EnvironmentViewerProps> = ({
               playsInline
               onLoadedData={() => setIsVideoLoaded(true)}
               onError={() => setVideoError(true)}
-              className={`w-full h-full object-cover object-center ${motionClass} transition-opacity duration-1000 ${
+              className={`w-full h-full object-cover object-center transition-opacity duration-700 ${
                 isVideoLoaded ? 'opacity-100' : 'opacity-0'
               }`}
             />
-            {/* Show static image while video streams */}
             {!isVideoLoaded && (
               <img
                 src={environment.image}
                 alt={environment.name}
-                className="absolute inset-0 w-full h-full object-cover object-center"
+                className="absolute inset-0 w-full h-full object-cover object-center animate-subtle-drift"
               />
             )}
           </div>
         ) : (
-          /* Render High-Resolution Hand-Painted Illustration */
-          <div className="relative w-full h-full overflow-hidden">
+          /* High-Resolution Hand-Painted Gouache Masterpiece with organic subtle drift */
+          <div className="relative w-full h-full">
             <img
               src={environment.image}
               alt={environment.name}
-              className={`w-full h-full object-cover object-center transform transition-transform duration-1000 ${motionClass}`}
+              className="w-full h-full object-cover object-center animate-subtle-drift"
             />
           </div>
         )}
       </div>
 
-      {/* Atmospheric Analog Vignette & Kerala Color Grading */}
-      <div 
-        className="absolute inset-0 pointer-events-none analog-vignette mix-blend-multiply opacity-80"
-      />
-      <div 
-        className="absolute inset-0 pointer-events-none warm-dust-overlay opacity-30" 
-      />
-      <div 
-        className="absolute inset-0 pointer-events-none transition-colors duration-1000"
-        style={{
-          backgroundColor: environment.colorTheme.overlay,
-          mixBlendMode: 'soft-light'
-        }}
-      />
-
-      {/* Interactive Hotspots Layer */}
-      {environment.hotspots && environment.hotspots.length > 0 && (
-        <EnvironmentHotspots 
-          hotspots={environment.hotspots}
-          onSelect={onHotspotClick}
-        />
-      )}
+      {/* Saloon.wtf Exact Subtle Atmospheric Gradients for contrast */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/50" />
     </div>
   );
 };

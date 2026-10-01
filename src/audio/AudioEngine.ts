@@ -1,4 +1,5 @@
 import { SoundscapeType, Song } from '../types/experience';
+import { SpotifyPlayerManager } from './SpotifyPlayerManager';
 
 type PlaybackStateListener = (state: {
   isPlaying: boolean;
@@ -6,6 +7,7 @@ type PlaybackStateListener = (state: {
   duration: number;
   isLoading: boolean;
   isProceduralSong: boolean;
+  isSpotifyActive: boolean;
   error: string | null;
 }) => void;
 
@@ -28,6 +30,12 @@ export class AudioEngine {
   private ambientEnabled: boolean = true;
   private listeners: Set<PlaybackStateListener> = new Set();
 
+  // Spotify Playback integration
+  private spotifyManager: SpotifyPlayerManager = SpotifyPlayerManager.getInstance();
+  private isSpotifyActive: boolean = false;
+  private spotifyCurrentTime: number = 0;
+  private spotifyDuration: number = 240;
+
   // Procedural fallback music (when local mp3 is not yet dropped in)
   private isProceduralSongActive: boolean = false;
   private proceduralInterval: number | null = null;
@@ -41,9 +49,21 @@ export class AudioEngine {
     gain: GainNode;
   }[] = [];
   private ambientAudioElement: HTMLAudioElement | null = null;
+  private foleyBufferCache: Map<string, AudioBuffer> = new Map();
+  private foleyLoopStopFn: (() => void) | null = null;
 
   private constructor() {
-    // Initialized on first user interaction
+    // Listen to Spotify EmbedController playback updates
+    this.spotifyManager.subscribe((update) => {
+      if (this.isSpotifyActive) {
+        this.isPlaying = !update.isPaused;
+        this.spotifyCurrentTime = update.position / 1000;
+        if (update.duration > 0) {
+          this.spotifyDuration = update.duration / 1000;
+        }
+        this.notifyState({ isLoading: update.isBuffering });
+      }
+    });
   }
 
   public static getInstance(): AudioEngine {
@@ -86,19 +106,27 @@ export class AudioEngine {
   }
 
   private notifyState(extra?: { isLoading?: boolean; error?: string | null }): void {
-    const time = this.isProceduralSongActive 
-      ? this.proceduralCurrentTime 
-      : (this.musicAudio?.currentTime || 0);
-    const dur = this.isProceduralSongActive 
-      ? this.proceduralDuration 
-      : (this.musicAudio?.duration || 0);
+    let time = 0;
+    let dur = this.currentSong?.duration || 240;
+
+    if (this.isSpotifyActive) {
+      time = this.spotifyCurrentTime;
+      dur = this.spotifyDuration > 0 ? this.spotifyDuration : (this.currentSong?.duration || 240);
+    } else if (this.isProceduralSongActive) {
+      time = this.proceduralCurrentTime;
+      dur = this.proceduralDuration;
+    } else {
+      time = this.musicAudio?.currentTime || 0;
+      dur = this.musicAudio?.duration || (this.currentSong?.duration || 240);
+    }
 
     const payload = {
       isPlaying: this.isPlaying,
       currentTime: Number.isFinite(time) ? time : 0,
-      duration: Number.isFinite(dur) && dur > 0 ? dur : 180,
+      duration: Number.isFinite(dur) && dur > 0 ? dur : 240,
       isLoading: extra?.isLoading ?? false,
       isProceduralSong: this.isProceduralSongActive,
+      isSpotifyActive: this.isSpotifyActive,
       error: extra?.error ?? null,
     };
 
@@ -111,6 +139,30 @@ export class AudioEngine {
     await this.initContext();
     this.currentSong = song;
     this.stopProceduralSong();
+
+    // Priority 1: If the track has a Spotify URI and EmbedController is ready or connecting,
+    // route playback through Spotify Player Manager so the song plays in its FULL ENTIRETY!
+    if (song.spotifyUri) {
+      this.isSpotifyActive = true;
+      this.spotifyCurrentTime = 0;
+      this.spotifyDuration = song.duration || 240;
+
+      // Stop any local HTML5 preview audio
+      if (this.musicAudio) {
+        this.musicAudio.pause();
+        this.musicAudio.src = '';
+        this.musicAudio = null;
+      }
+
+      this.notifyState({ isLoading: autoPlay, error: null });
+      this.spotifyManager.loadTrack(song.spotifyUri, autoPlay);
+
+      // If Spotify controller isn't mounted yet or user wants preview audio fallback,
+      // load audio element as secondary parallel source
+      return;
+    }
+
+    this.isSpotifyActive = false;
 
     if (this.musicAudio) {
       this.musicAudio.pause();
@@ -160,7 +212,7 @@ export class AudioEngine {
 
     // Timeout check in case network hangs or file is completely 404
     setTimeout(() => {
-      if (!hasLoaded && this.musicAudio === audio && !this.isProceduralSongActive) {
+      if (!hasLoaded && this.musicAudio === audio && !this.isProceduralSongActive && !this.isSpotifyActive) {
         this.startProceduralSong(autoPlay);
       }
     }, 1200);
@@ -168,6 +220,13 @@ export class AudioEngine {
 
   public async play(): Promise<void> {
     await this.initContext();
+
+    if (this.isSpotifyActive) {
+      this.isPlaying = true;
+      this.spotifyManager.play();
+      this.notifyState();
+      return;
+    }
 
     if (this.isProceduralSongActive) {
       this.isPlaying = true;
@@ -192,6 +251,9 @@ export class AudioEngine {
 
   public pause(): void {
     this.isPlaying = false;
+    if (this.isSpotifyActive) {
+      this.spotifyManager.pause();
+    }
     if (this.musicAudio) {
       this.musicAudio.pause();
     }
@@ -199,6 +261,13 @@ export class AudioEngine {
   }
 
   public seek(seconds: number): void {
+    if (this.isSpotifyActive) {
+      this.spotifyCurrentTime = seconds;
+      this.spotifyManager.seek(seconds);
+      this.notifyState();
+      return;
+    }
+
     if (this.isProceduralSongActive) {
       this.proceduralCurrentTime = Math.max(0, Math.min(seconds, this.proceduralDuration));
       this.notifyState();
@@ -299,7 +368,7 @@ export class AudioEngine {
     if (this.currentSoundscape === type) return;
     this.currentSoundscape = type;
 
-    // Smoothly fade out existing ambient sound over 1.5 seconds
+    // Smoothly fade out existing ambient sound over 1.2 seconds
     const now = this.ctx.currentTime;
     const oldNodes = [...this.activeAmbientNodes];
     this.activeAmbientNodes = [];
@@ -307,48 +376,130 @@ export class AudioEngine {
     oldNodes.forEach(({ gain, stop }) => {
       try {
         gain.gain.setValueAtTime(gain.gain.value, now);
-        gain.gain.linearRampToValueAtTime(0.0001, now + 1.4);
-        setTimeout(() => stop(), 1500);
+        gain.gain.linearRampToValueAtTime(0.0001, now + 1.2);
+        setTimeout(() => stop(), 1300);
       } catch {
         stop();
       }
     });
 
+    if (this.foleyLoopStopFn) {
+      this.foleyLoopStopFn();
+      this.foleyLoopStopFn = null;
+    }
+
     if (this.ambientAudioElement) {
       const el = this.ambientAudioElement;
       this.ambientAudioElement = null;
-      let fadeCount = 0;
-      const fadeInterval = setInterval(() => {
-        fadeCount++;
-        el.volume = Math.max(0, el.volume - 0.1);
-        if (fadeCount >= 10 || el.volume <= 0.05) {
-          clearInterval(fadeInterval);
-          el.pause();
-          el.src = '';
-        }
-      }, 140);
+      el.pause();
+      el.src = '';
     }
 
-    // Try external audio file if path provided, otherwise synthesize authentic Kerala environment
+    const sceneGain = this.ctx.createGain();
+    sceneGain.gain.setValueAtTime(0.0001, now);
+    sceneGain.gain.linearRampToValueAtTime(1.0, now + 1.2);
+    sceneGain.connect(this.ambientGain);
+
     if (externalAudioPath) {
-      const ambAudio = new Audio(externalAudioPath);
-      ambAudio.loop = true;
-      ambAudio.volume = 0;
-      ambAudio.play().then(() => {
-        this.ambientAudioElement = ambAudio;
-        let fadeCount = 0;
-        const targetVol = this.isMuted ? 0 : this.masterVol * this.ambientVol;
-        const fadeIn = setInterval(() => {
-          fadeCount++;
-          ambAudio.volume = Math.min(targetVol, ambAudio.volume + targetVol / 10);
-          if (fadeCount >= 10) clearInterval(fadeIn);
-        }, 140);
+      this.playSeamlessFoleyLoop(externalAudioPath, sceneGain).then((stopFn) => {
+        this.foleyLoopStopFn = stopFn;
+        this.activeAmbientNodes.push({ gain: sceneGain, stop: stopFn });
       }).catch(() => {
         this.synthesizeSoundscape(type);
       });
     } else {
       this.synthesizeSoundscape(type);
     }
+  }
+
+  // Dual-Deck Web Audio Buffer Crossfade Looper for 100% gapless, seamless playback
+  private async playSeamlessFoleyLoop(audioPath: string, parentGain: GainNode): Promise<() => void> {
+    if (!this.ctx) return () => {};
+
+    let buffer = this.foleyBufferCache.get(audioPath);
+    if (!buffer) {
+      try {
+        const response = await fetch(audioPath);
+        const arrayBuffer = await response.arrayBuffer();
+        buffer = await this.ctx.decodeAudioData(arrayBuffer);
+        this.foleyBufferCache.set(audioPath, buffer);
+      } catch {
+        // Fallback to simple HTML audio if Web Audio fetch/decode fails
+        const fallbackAudio = new Audio(audioPath);
+        fallbackAudio.loop = true;
+        fallbackAudio.volume = this.isMuted || !this.ambientEnabled ? 0 : this.masterVol * this.ambientVol;
+        fallbackAudio.play().catch(() => {});
+        this.ambientAudioElement = fallbackAudio;
+        return () => {
+          fallbackAudio.pause();
+          fallbackAudio.src = '';
+        };
+      }
+    }
+
+    if (!buffer || buffer.duration <= 2) return () => {};
+
+    let isRunning = true;
+    let nextTimer: number | null = null;
+    const activeSources: { source: AudioBufferSourceNode; gain: GainNode }[] = [];
+
+    // Equal-power crossfade of 2.2 seconds between consecutive loops
+    const crossfadeTime = Math.min(2.5, buffer.duration * 0.15);
+    const loopInterval = (buffer.duration - crossfadeTime) * 1000;
+
+    const scheduleNode = () => {
+      if (!isRunning || !this.ctx) return;
+
+      const now = this.ctx.currentTime;
+      const source = this.ctx.createBufferSource();
+      source.buffer = buffer;
+
+      const nodeGain = this.ctx.createGain();
+      // Fade-in over crossfadeTime
+      nodeGain.gain.setValueAtTime(0.0001, now);
+      nodeGain.gain.linearRampToValueAtTime(1.0, now + crossfadeTime);
+      // Fade-out at buffer end
+      const fadeOutStart = now + buffer.duration - crossfadeTime;
+      nodeGain.gain.setValueAtTime(1.0, fadeOutStart);
+      nodeGain.gain.linearRampToValueAtTime(0.0001, now + buffer.duration);
+
+      source.connect(nodeGain);
+      nodeGain.connect(parentGain);
+
+      source.start(now);
+      source.stop(now + buffer.duration);
+
+      const entry = { source, gain: nodeGain };
+      activeSources.push(entry);
+
+      source.onended = () => {
+        const idx = activeSources.indexOf(entry);
+        if (idx !== -1) activeSources.splice(idx, 1);
+      };
+
+      nextTimer = window.setTimeout(scheduleNode, loopInterval);
+    };
+
+    scheduleNode();
+
+    return () => {
+      isRunning = false;
+      if (nextTimer !== null) clearTimeout(nextTimer);
+      if (this.ctx) {
+        const now = this.ctx.currentTime;
+        activeSources.forEach(({ source, gain }) => {
+          try {
+            gain.gain.setValueAtTime(gain.gain.value, now);
+            gain.gain.linearRampToValueAtTime(0.0001, now + 0.4);
+            setTimeout(() => {
+              try { source.stop(); } catch {}
+            }, 500);
+          } catch {
+            try { source.stop(); } catch {}
+          }
+        });
+      }
+    };
   }
 
   // High-fidelity procedural Kerala ambient generator
@@ -391,7 +542,8 @@ export class AudioEngine {
       });
 
     } else if (type === 'tea-shop') {
-      // Roadside tea shop: Kettle hiss + glass clinks + warm murmur
+      // Roadside tea shop (Thattukada / Chayakada): 
+      // 1. Boiling kettle steam hiss
       const steamNoise = this.createNoiseBufferNode(false);
       const steamFilter = this.ctx.createBiquadFilter();
       steamFilter.type = 'highpass';
@@ -405,15 +557,45 @@ export class AudioEngine {
       steamGain.connect(sceneGain);
       steamNoise.start();
 
-      // Periodic clinking of chai glasses
+      // 2. Cast iron kadai hot coconut oil crackle & gentle sizzle bed
+      const oilCrackle = this.createNoiseBufferNode(true);
+      const oilFilter = this.ctx.createBiquadFilter();
+      oilFilter.type = 'bandpass';
+      oilFilter.frequency.value = 1800;
+      oilFilter.Q.value = 1.6;
+
+      const oilGain = this.ctx.createGain();
+      oilGain.gain.value = 0.07;
+
+      oilCrackle.connect(oilFilter);
+      oilFilter.connect(oilGain);
+      oilGain.connect(sceneGain);
+      oilCrackle.start();
+
+      // 3. Periodic Tea Pouring Sound (Metre Chai frothing cascade from glass to glass)
+      const teaPourInterval = window.setInterval(() => {
+        if (!this.ctx || this.currentSoundscape !== 'tea-shop') return;
+        this.triggerTeaPour(sceneGain);
+      }, 9500);
+
+      // 4. Periodic Tumbler Glass Clinking
       const clinkInterval = window.setInterval(() => {
         if (!this.ctx || this.currentSoundscape !== 'tea-shop') return;
         this.triggerGlassClink(sceneGain);
-      }, 7000);
+      }, 6500);
+
+      // 5. Periodic Vintage Bicycle Bell Ringing ("trin-trin" passing outside the shop)
+      const cycleBellInterval = window.setInterval(() => {
+        if (!this.ctx || this.currentSoundscape !== 'tea-shop') return;
+        this.triggerCycleBell(sceneGain);
+      }, 18000);
 
       cleanupFns.push(() => {
+        clearInterval(teaPourInterval);
         clearInterval(clinkInterval);
+        clearInterval(cycleBellInterval);
         try { steamNoise.stop(); } catch {}
+        try { oilCrackle.stop(); } catch {}
       });
 
     } else if (type === 'bus') {
@@ -606,6 +788,68 @@ export class AudioEngine {
 
     osc.start(now);
     osc.stop(now + 0.4);
+  }
+
+  // Realistic tea pouring / metre tea frothing cascade from height
+  private triggerTeaPour(destination: GainNode): void {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const noise = this.createNoiseBufferNode(true);
+    const filter = this.ctx.createBiquadFilter();
+    const gain = this.ctx.createGain();
+
+    // Liquid pouring filter sweep from high splash to resonant glass filling
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(900, now);
+    filter.frequency.linearRampToValueAtTime(1400, now + 0.8);
+    filter.frequency.linearRampToValueAtTime(700, now + 1.8);
+    filter.Q.value = 2.5;
+
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.exponentialRampToValueAtTime(0.12, now + 0.15);
+    gain.gain.exponentialRampToValueAtTime(0.08, now + 1.2);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.0);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(destination);
+
+    noise.start(now);
+    noise.stop(now + 2.1);
+  }
+
+  // Authentic vintage Indian road bicycle bell double ring ("trin-trin")
+  private triggerCycleBell(destination: GainNode): void {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    const ring = (time: number) => {
+      if (!this.ctx) return;
+      const osc1 = this.ctx.createOscillator();
+      const osc2 = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(2250, time);
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(2480, time);
+
+      g.gain.setValueAtTime(0.001, time);
+      g.gain.exponentialRampToValueAtTime(0.09, time + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, time + 0.28);
+
+      osc1.connect(g);
+      osc2.connect(g);
+      g.connect(destination);
+
+      osc1.start(time);
+      osc2.start(time);
+      osc1.stop(time + 0.3);
+      osc2.stop(time + 0.3);
+    };
+
+    ring(now);
+    ring(now + 0.13); // second chime of "trin-trin"
   }
 
   // --- VOLUME & MIXER CONTROLS ---

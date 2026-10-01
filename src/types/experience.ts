@@ -51,6 +51,8 @@ export interface Song {
   cover?: string;
   tags: string[];
   recommendedEnvironments: string[];
+  spotifyUri?: string;
+  duration?: number;
 }
 
 export interface AudioMixerState {
