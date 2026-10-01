@@ -1,7 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Song } from '../../types/experience';
-import { ListMusic, Search, X, ExternalLink } from 'lucide-react';
-import { SPOTIFY_PLAYLIST_ID, SPOTIFY_PLAYLIST_NAME } from '../../data/songs';
+import { ListMusic, Search, X } from 'lucide-react';
 
 interface SaloonPlayerProps {
   currentSong: Song;
@@ -57,6 +56,24 @@ export const SaloonPlayer: React.FC<SaloonPlayerProps> = ({
     onSeek(pct * duration);
   };
 
+  const handlePrev = () => {
+    if (allSongs.length > 1) {
+      onPrevTrack();
+    } else {
+      // Single continuous track: seek back 15 seconds or rewind
+      onSeek(Math.max(0, currentTime - 15));
+    }
+  };
+
+  const handleNext = () => {
+    if (allSongs.length > 1) {
+      onNextTrack();
+    } else {
+      // Single continuous track: seek forward 15 seconds
+      onSeek(Math.min(duration, currentTime + 15));
+    }
+  };
+
   const filteredSongs = allSongs.filter((song) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
@@ -68,8 +85,8 @@ export const SaloonPlayer: React.FC<SaloonPlayerProps> = ({
 
   return (
     <div className="relative mb-[6vh] sm:mb-[8vh] flex w-full flex-col items-center px-4 sm:px-6 select-none pointer-events-auto">
-      {/* 1. Slide-up Spotify Playlist Queue Tray (94 songs) */}
-      {isQueueOpen && (
+      {/* 1. Track Queue Tray (if multiple songs exist) */}
+      {isQueueOpen && allSongs.length > 1 && (
         <div className="
           w-full max-w-xl mb-3 rounded-2xl overflow-hidden
           bg-black/75 backdrop-blur-2xl backdrop-saturate-150
@@ -78,39 +95,21 @@ export const SaloonPlayer: React.FC<SaloonPlayerProps> = ({
           p-3 sm:p-4 text-white animate-in fade-in slide-in-from-bottom-2 duration-200 z-30
         ">
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
-            <div className="flex items-center gap-2">
-              <div className="h-6 w-6 rounded-full bg-[#1DB954] flex items-center justify-center text-black font-bold text-xs shrink-0">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
-                </svg>
-              </div>
-              <div>
-                <span className="text-xs font-semibold block leading-tight">
-                  {SPOTIFY_PLAYLIST_NAME}
-                </span>
-                <span className="text-[10px] text-white/60">
-                  {allSongs.length} Tracks in Playlist Queue
-                </span>
-              </div>
+            <div>
+              <span className="text-xs font-semibold block leading-tight">
+                Tracks Playlist
+              </span>
+              <span className="text-[10px] text-white/60">
+                {allSongs.length} Tracks Available
+              </span>
             </div>
 
-            <div className="flex items-center gap-2">
-              <a
-                href={`https://open.spotify.com/playlist/${SPOTIFY_PLAYLIST_ID}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Open on Spotify"
-                className="text-white/60 hover:text-[#1DB954] transition p-1"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-              <button
-                onClick={() => setIsQueueOpen(false)}
-                className="p-1 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+            <button
+              onClick={() => setIsQueueOpen(false)}
+              className="p-1 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
 
           {/* Search box */}
@@ -120,8 +119,8 @@ export const SaloonPlayer: React.FC<SaloonPlayerProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search 94 songs, singers (Yesudas, Chithra, Vidyasagar)..."
-              className="w-full bg-white/5 border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-white/40 focus:outline-none focus:border-[#1DB954]"
+              placeholder="Search songs, artists..."
+              className="w-full bg-white/5 border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-white/40 focus:outline-none focus:border-amber-400"
             />
           </div>
 
@@ -163,8 +162,8 @@ export const SaloonPlayer: React.FC<SaloonPlayerProps> = ({
 
                   {isSelected && (
                     <span className="relative flex h-2 w-2 ml-2 shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-400" />
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
                     </span>
                   )}
                 </button>
@@ -178,67 +177,65 @@ export const SaloonPlayer: React.FC<SaloonPlayerProps> = ({
       <div className="w-full max-w-xl">
         <div className="
           group relative flex items-center gap-3 sm:gap-4 rounded-full p-2.5 sm:p-3 pr-4 sm:pr-5
-          bg-white/10 backdrop-blur-2xl backdrop-saturate-150
+          bg-black/45 backdrop-blur-2xl backdrop-saturate-150
           border border-white/20
-          shadow-[0_8px_40px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.25)]
+          shadow-[0_16px_50px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.2)]
+          text-white transition-all duration-300
         ">
-          {/* Spinning Vinyl Album Artwork */}
-          <div className="relative h-14 w-14 sm:h-16 sm:w-16 shrink-0">
-            <div 
-              className={`h-full w-full overflow-hidden rounded-full shadow-lg ring-1 ring-white/20 transition-all ${
-                isPlaying ? 'animate-[spin_8s_linear_infinite]' : ''
-              }`}
-              style={{
-                animationPlayState: isPlaying ? 'running' : 'paused',
-              }}
-            >
-              <img 
-                src={currentSong.cover || '/assets/environments/tea-shop.jpg'} 
-                alt={`${currentSong.title} artwork`}
-                className="h-full w-full object-cover"
+          {/* Album Cover Art / Spinning Vinyl Icon */}
+          <div className="relative h-11 w-11 sm:h-12 sm:w-12 shrink-0 overflow-hidden rounded-full shadow-md border border-white/25">
+            {currentSong.cover ? (
+              <img
+                src={currentSong.cover}
+                alt={currentSong.title}
+                className={`h-full w-full object-cover transition-transform duration-700 ${
+                  isPlaying ? 'rotate-[360deg] duration-[12000ms] repeat-infinite ease-linear' : ''
+                }`}
+                style={{
+                  animation: isPlaying ? 'spin 18s linear infinite' : 'none',
+                }}
               />
-            </div>
-            {/* Center vinyl spindle hole */}
-            <div className="pointer-events-none absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/80 ring-2 ring-white/40" />
+            ) : (
+              <div className="h-full w-full bg-gradient-to-br from-amber-700/80 to-amber-950/80 flex items-center justify-center">
+                <span className="text-base">📻</span>
+              </div>
+            )}
+            
+            {/* Center Vinyl Spindle Hole */}
+            <div className="absolute inset-0 m-auto h-2.5 w-2.5 rounded-full bg-black/80 border border-white/40" />
           </div>
 
-          {/* Song Metadata & Scrub Bar */}
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <p className="truncate text-xs sm:text-sm font-semibold text-white drop-shadow-sm leading-tight">
+          {/* Song Info & Interactive Progress Bar */}
+          <div className="flex min-w-0 flex-1 flex-col justify-center">
+            {/* Title & Artist */}
+            <div className="flex items-baseline justify-between gap-2 overflow-hidden pr-1">
+              <span className="truncate text-xs sm:text-sm font-semibold tracking-tight text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]">
                 {currentSong.title}
-              </p>
+              </span>
+              <span className="shrink-0 truncate text-[11px] sm:text-xs text-white/70">
+                {currentSong.artist}
+              </span>
             </div>
-            <p className="truncate text-[11px] sm:text-xs text-white/70 mt-0.5">
-              {currentSong.artist}
-            </p>
 
-            <div className="mt-1.5">
-              {/* Scrub line */}
-              <div 
+            {/* Clickable / Draggable Progress Scrubber */}
+            <div className="mt-1 flex flex-col justify-center">
+              <div
                 ref={progressBarRef}
                 onClick={handleSeek}
-                className="group/bar relative h-2 w-full cursor-pointer" 
-                role="slider" 
-                aria-label="Seek timeline" 
-                aria-valuemin={0} 
-                aria-valuemax={100} 
-                aria-valuenow={progressPercent}
+                className="group/seek relative h-1.5 w-full cursor-pointer rounded-full bg-white/20 transition-all hover:h-2"
+                title={`Seek position (${formatTime(currentTime)} / ${formatTime(duration)})`}
               >
-                <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-white/20">
-                  <div 
-                    className="h-full rounded-full bg-white/90 transition-all duration-100" 
-                    style={{ width: `${progressPercent}%` }}
-                  />
+                {/* Played Progress Bar */}
+                <div
+                  className="h-full rounded-full bg-white transition-[width] duration-100 relative group-hover/seek:bg-amber-300"
+                  style={{ width: `${progressPercent}%` }}
+                >
+                  {/* Scrubber Thumb Knob on Hover */}
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 h-3 w-3 rounded-full bg-white shadow-md scale-0 group-hover/seek:scale-100 transition-transform" />
                 </div>
-                {/* Thumb hover circle */}
-                <div 
-                  className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white opacity-0 shadow transition-opacity group-hover/bar:opacity-100 pointer-events-none" 
-                  style={{ left: `${progressPercent}%` }}
-                />
               </div>
 
-              {/* Timestamp, Lo-Fi Badge, & Spotify Queue Quick Button */}
+              {/* Timestamp & Lo-Fi Badge */}
               <div className="mt-0.5 flex items-center justify-between text-[10px] tabular-nums text-white/60 font-mono">
                 <div className="flex items-center gap-2">
                   <span>{formatTime(currentTime)} / {formatTime(duration)}</span>
@@ -257,39 +254,42 @@ export const SaloonPlayer: React.FC<SaloonPlayerProps> = ({
                   )}
                 </div>
                 
-                <button
-                  onClick={() => setIsQueueOpen(!isQueueOpen)}
-                  title="View 94 tracks in your Spotify playlist"
-                  className="flex items-center gap-1 text-[10px] text-[#1DB954] hover:underline font-sans cursor-pointer transition"
-                >
-                  <ListMusic className="w-3 h-3" />
-                  <span className="hidden sm:inline">Spotify Queue ({currentIndex + 1}/{allSongs.length || 94})</span>
-                </button>
+                {allSongs.length > 1 && (
+                  <button
+                    onClick={() => setIsQueueOpen(!isQueueOpen)}
+                    title="View tracks list"
+                    className="flex items-center gap-1 text-[10px] text-amber-300 hover:underline font-sans cursor-pointer transition"
+                  >
+                    <ListMusic className="w-3 h-3" />
+                    <span className="hidden sm:inline">Tracks ({currentIndex + 1}/{allSongs.length})</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Controls: Prev, Play/Pause, Next */}
+          {/* Controls: Prev (-15s), Play/Pause, Next (+15s) */}
           <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-            {/* Playlist Queue Toggle */}
-            <button 
-              type="button"
-              onClick={() => setIsQueueOpen(!isQueueOpen)}
-              title="Browse 94 songs in your Spotify playlist"
-              aria-label="Toggle playlist queue"
-              className={`grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-full transition cursor-pointer ${
-                isQueueOpen ? 'bg-white/25 text-[#1DB954]' : 'text-white/60 hover:text-white hover:bg-white/15'
-              }`}
-            >
-              <ListMusic className="w-3.5 h-3.5" />
-            </button>
+            {allSongs.length > 1 && (
+              <button 
+                type="button"
+                onClick={() => setIsQueueOpen(!isQueueOpen)}
+                title="Browse playlist"
+                aria-label="Toggle playlist queue"
+                className={`grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-full transition cursor-pointer ${
+                  isQueueOpen ? 'bg-white/25 text-amber-300' : 'text-white/60 hover:text-white hover:bg-white/15'
+                }`}
+              >
+                <ListMusic className="w-3.5 h-3.5" />
+              </button>
+            )}
 
-            {/* Previous Track */}
+            {/* Previous Track / Rewind 15s */}
             <button 
               type="button" 
-              onClick={onPrevTrack}
+              onClick={handlePrev}
               aria-label="Previous track" 
-              title="Previous song (or use left arrow)"
+              title={allSongs.length > 1 ? "Previous song (or left arrow)" : "Rewind 15 seconds (or left arrow)"}
               className="grid h-8 w-8 sm:h-9 sm:w-9 place-items-center rounded-full text-white/80 transition hover:bg-white/15 hover:text-white active:scale-95 cursor-pointer"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -317,12 +317,12 @@ export const SaloonPlayer: React.FC<SaloonPlayerProps> = ({
               )}
             </button>
 
-            {/* Next Track */}
+            {/* Next Track / Forward 15s */}
             <button 
               type="button" 
-              onClick={onNextTrack}
+              onClick={handleNext}
               aria-label="Next track" 
-              title="Next song (or use right arrow)"
+              title={allSongs.length > 1 ? "Next song (or right arrow)" : "Forward 15 seconds (or right arrow)"}
               className="grid h-8 w-8 sm:h-9 sm:w-9 place-items-center rounded-full text-white/80 transition hover:bg-white/15 hover:text-white active:scale-95 cursor-pointer"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

@@ -77,7 +77,7 @@ export const MainExperience: React.FC = () => {
       {/* 1. Full-screen Edge-to-Edge Background Art / Flow Video */}
       <EnvironmentViewer environment={activeEnvironment} />
 
-      {/* 2. Saloon.wtf Exact Top Bar: Live Clock, Online Badge, Spotify, YT Music, Scene Selector */}
+      {/* 2. Top Bar: Live Clock, Online Badge, YouTube Source, Scene Selector */}
       <SaloonHeader
         activeEnvironment={activeEnvironment}
         environmentIndex={activeEnvIndex}

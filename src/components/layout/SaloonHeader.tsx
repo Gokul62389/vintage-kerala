@@ -88,33 +88,19 @@ export const SaloonHeader: React.FC<SaloonHeaderProps> = ({
           </svg>
         </button>
 
-        {/* Spotify Playlist Pill */}
+        {/* YouTube Source Track Pill */}
         <a 
-          href="https://open.spotify.com/playlist/2o6xkm1yZJ5t6z2wDOaYGF"
-          target="_blank"
-          rel="noopener noreferrer"
-          title="Open Malayalam Hit Songs on Spotify"
-          className="group/pill flex items-center gap-2 rounded-full text-sm font-medium p-2.5 sm:py-2 sm:pl-3 sm:pr-3.5 drop-shadow-[0_1px_6px_rgba(0,0,0,0.5)] transition active:scale-95 cursor-pointer bg-black/40 backdrop-blur-md border border-white/20 text-white hover:bg-white/20"
-          aria-label="Open on Spotify"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
-          </svg>
-          <span className="hidden sm:inline">Spotify</span>
-        </a>
-
-        {/* YT Music Pill */}
-        <a 
-          href="https://music.youtube.com" 
+          href="https://www.youtube.com/watch?v=KB4XtZr-7X4" 
           target="_blank" 
           rel="noopener noreferrer" 
-          className="group/pill flex items-center gap-2 rounded-full text-sm font-medium text-white p-2.5 sm:py-2 sm:pl-3 sm:pr-3.5 drop-shadow-[0_1px_6px_rgba(0,0,0,0.5)] transition hover:opacity-80 active:scale-95" 
-          aria-label="Open on YouTube Music"
+          className="group/pill flex items-center gap-2 rounded-full text-sm font-medium text-white p-2.5 sm:py-2 sm:pl-3 sm:pr-3.5 drop-shadow-[0_1px_6px_rgba(0,0,0,0.5)] transition hover:bg-white/20 active:scale-95 bg-black/40 backdrop-blur-md border border-white/20" 
+          aria-label="Source on YouTube"
+          title="Source: Best Melodies of All Time (Saina Music)"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="white" aria-hidden="true">
-            <path d="M12 0C5.376 0 0 5.376 0 12s5.376 12 12 12 12-5.376 12-12S18.624 0 12 0zm0 19.104c-3.924 0-7.104-3.18-7.104-7.104S8.076 4.896 12 4.896s7.104 3.18 7.104 7.104-3.18 7.104-7.104 7.104zm0-13.332c-3.432 0-6.228 2.796-6.228 6.228S8.568 18.228 12 18.228s6.228-2.796 6.228-6.228S15.432 5.772 12 5.772zM9.684 15.54V8.46L15.816 12l-6.132 3.54z"/>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="#FF0000" aria-hidden="true">
+            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
           </svg>
-          <span className="hidden sm:inline">YT Music</span>
+          <span className="hidden sm:inline">YouTube</span>
           <span className="hidden sm:inline-flex">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="-rotate-45 opacity-50 transition group-hover/pill:opacity-90">
               <path d="M5 12h14M13 6l6 6-6 6"/>
